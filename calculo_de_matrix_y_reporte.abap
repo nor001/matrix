@@ -238,8 +238,6 @@ CLASS zcleam_13_reporte_matriz DEFINITION
 
         " tablas
         plkz                     TYPE gtt_plkz,
-*        caracteri_averia            TYPE gtt_caracteri_averia,
-*        caracteri_averia_secundario TYPE gtt_caracteri_averia,
       END OF gty_detail.
     TYPES gtt_detail TYPE TABLE OF gty_detail WITH DEFAULT KEY.
     TYPES:
@@ -421,10 +419,6 @@ CLASS zcleam_13_reporte_matriz DEFINITION
     TYPES gtr_aufnr TYPE RANGE OF aufk-aufnr.
     TYPES gtr_qmnum TYPE RANGE OF qmel-qmnum.
 
-    " tablas internas
-*    DATA gt_char_filter_fcat TYPE lvc_t_fcat.
-*    DATA gt_char_filter_lvc  TYPE lvc_t_filt.
-*    DATA gd_char_filter_data TYPE REF TO data.
     " estructuras
     DATA constant_global            TYPE gty_const.
     " variables
@@ -433,7 +427,25 @@ CLASS zcleam_13_reporte_matriz DEFINITION
     DATA detail_dynamics_global     TYPE REF TO data.
     " objetos
     DATA utilities                  TYPE REF TO zcl_utilities.
+    DATA eam_utilities              TYPE REF TO zeamcl_utilitarios.
     DATA alv_modif_campos_crear_ord TYPE REF TO cl_gui_alv_grid.
+    CONSTANTS:
+      " Roles de interlocutor (partner roles)
+      BEGIN OF gc_parvw,
+        dpto_responsable TYPE ihpa-parvw VALUE 'AB',
+        usr_responsable  TYPE ihpa-parvw VALUE 'VU',
+        proveedor        TYPE ihpa-parvw VALUE 'LF',
+        responsable      TYPE ihpa-parvw VALUE 'VW',
+      END OF gc_parvw.
+    CONSTANTS:
+      " Status del sistema
+      BEGIN OF gc_status,
+        equipo_cerrado TYPE jest-stat VALUE 'I0072',
+      END OF gc_status.
+    CONSTANTS:
+      " Número máximo de slots de hoja de ruta
+      gc_max_plkz_slots TYPE i VALUE 6.
+
     DATA:
       " constantes
       BEGIN OF gs_tipo_objeto_tecnico,
@@ -666,6 +678,12 @@ CLASS zcleam_13_reporte_matriz DEFINITION
 
     METHODS clear_plkz_fields
       CHANGING cs_edit TYPE any.
+
+    METHODS init_plnty_fields
+      CHANGING cs_edit TYPE any.
+
+    METHODS get_fcat_crear_orden
+      RETURNING VALUE(rt_fcats) TYPE lvc_t_fcat.
 ENDCLASS.
 
 
@@ -776,7 +794,6 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                                     CHANGING  cs_fcat = <fcat> ).
 
         WHEN 'BOX'
-*          OR 'ZZLEGADO' OR 'ZZCODLEG' OR 'ZZRANKING' OR 'ZZRECOMEN'
           OR 'ZTBEAM_12_HREQPR_KTEXT'
           OR 'CREAR_O_ACTUALIZAR_AVISO' OR 'PLAZO'.
           <fcat>-tech = abap_on.
@@ -814,16 +831,12 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD alv_modif_individual_campos.
-    DATA fcats TYPE lvc_t_fcat.
+    DATA(fcats) = get_fcat_crear_orden( ).
 
     " layout/variant/catalog
     DATA(layo) = VALUE lvc_s_layo( zebra      = abap_on
                                    cwidth_opt = abap_on
                                    col_opt    = abap_on ).
-
-    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
-      EXPORTING i_structure_name = 'ZSTEAM_13_ALV_EDIT_CREA_ORDEN'
-      CHANGING  ct_fieldcat      = fcats.
 
     " fcat
     LOOP AT fcats ASSIGNING FIELD-SYMBOL(<fcat>).
@@ -858,16 +871,12 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD alv_modif_masiva_campos.
-    DATA fcats TYPE lvc_t_fcat.
+    DATA(fcats) = get_fcat_crear_orden( ).
 
     " layout/variant/catalog
     DATA(layo) = VALUE lvc_s_layo( zebra      = abap_on
                                    cwidth_opt = abap_on
                                    col_opt    = abap_on ).
-
-    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
-      EXPORTING i_structure_name = 'ZSTEAM_13_ALV_EDIT_CREA_ORDEN'
-      CHANGING  ct_fieldcat      = fcats.
 
     " fcat
     LOOP AT fcats ASSIGNING FIELD-SYMBOL(<fcat>).
@@ -906,22 +915,6 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD alv_st.
-*    APPEND '&AQW' TO ct_excl.
-*    APPEND '&ABC' TO ct_excl.
-*    APPEND '%PC' TO ct_excl.
-*
-*    " btn
-*    DATA(lt_code) = VALUE edoc_smp_dyntxt_tab(
-*        ( icon_id = icon_generate icon_text = 'Crear/Actualizar avisos' text = 'Crear/Actualizar avisos' )
-*        ( icon_id = icon_submit icon_text = 'Crear ordenes' text = 'Crear ordenes' )
-*        ( icon_text = 'Actualizar campos para creación de ordenes' text = 'Actualizar campos para creación de ordenes' )
-*        ( icon_text = 'Asignación masiva de HR para creación de ordenes' text = 'Asignación masiva de HR para creación de ordenes' ) ).
-*
-*    PERFORM dynamic_report_fcodes IN PROGRAM rhteiln0
-*      TABLES lt_code
-*      USING  ct_excl
-*             ''
-*             ''.
     SET PF-STATUS 'ALV_ST' EXCLUDING ct_excl OF PROGRAM sy-cprog.
   ENDMETHOD.
 
@@ -955,34 +948,23 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
             SET PARAMETER ID 'ANR' FIELD detail-aufnr.
             CALL TRANSACTION 'IW33' AND SKIP FIRST SCREEN.
         ENDCASE.
-      WHEN 'FC01'.
-        button_crear_udpate_avisos( EXPORTING  matx_c                 = maestro_zpeam0012_global-matx_c
-                                    CHANGING   detail_dynamics_global = detail_dynamics_global
-                                    EXCEPTIONS error                  = 1 ).
-        IF sy-subrc <> 0.
-          utilities->message_show( ).
-        ENDIF.
-        utilities->alvlvc_refresh( CHANGING cs_sel = cs_sel ).
+      WHEN 'FC01' OR 'FC02' OR 'FC03' OR 'FC04'.
+        CASE i_ucomm.
+          WHEN 'FC01'.
+            button_crear_udpate_avisos( EXPORTING  matx_c                 = maestro_zpeam0012_global-matx_c
+                                        CHANGING   detail_dynamics_global = detail_dynamics_global
+                                        EXCEPTIONS error                  = 1 ).
+          WHEN 'FC02'.
+            button_crear_ordenes( CHANGING   detail_dynamic = detail_dynamics_global
+                                  EXCEPTIONS error          = 1 ).
+          WHEN 'FC03'.
+            button_modify_individual_flds( CHANGING   detail_dynamic = detail_dynamics_global
+                                           EXCEPTIONS error          = 1 ).
+          WHEN 'FC04'.
+            button_modify_mass_flds( CHANGING   detail_dynamic = detail_dynamics_global
+                                     EXCEPTIONS error          = 1 ).
+        ENDCASE.
 
-      WHEN 'FC02'.
-        button_crear_ordenes( CHANGING   detail_dynamic = detail_dynamics_global
-                              EXCEPTIONS error          = 1 ).
-        IF sy-subrc <> 0.
-          utilities->message_show( ).
-        ENDIF.
-        utilities->alvlvc_refresh( CHANGING cs_sel = cs_sel ).
-
-      WHEN 'FC03'.
-        button_modify_individual_flds( CHANGING   detail_dynamic = detail_dynamics_global
-                                       EXCEPTIONS error          = 1 ).
-        IF sy-subrc <> 0.
-          utilities->message_show( ).
-        ENDIF.
-        utilities->alvlvc_refresh( CHANGING cs_sel = cs_sel ).
-
-      WHEN 'FC04'.
-        button_modify_mass_flds( CHANGING   detail_dynamic = detail_dynamics_global
-                                 EXCEPTIONS error          = 1 ).
         IF sy-subrc <> 0.
           utilities->message_show( ).
         ENDIF.
@@ -991,7 +973,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD bapi_alm_notif_create.
-    NEW zeamcl_utilitarios( )->crear_aviso(
+    eam_utilities->crear_aviso(
           EXPORTING  i_qmart        = constant_global-aviso_crear_qmart
                      is_cab         = VALUE #( funct_loc  = detail-tplnr
                                                equipment  = detail-equnr
@@ -1018,7 +1000,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD bapi_alm_notif_data_modify.
-    NEW zeamcl_utilitarios( )->modificar_aviso(
+    eam_utilities->modificar_aviso(
           EXPORTING  i_qmnum   = detail-qmnum
                      is_cab    = VALUE #( short_text = detail-recomendacion )
                      is_cabx   = VALUE #( short_text = abap_on )
@@ -1080,7 +1062,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                       objectkey  = '%00000000001' ) TO methods.
 
       APPEND VALUE #( partner    = crear_orden-contratista
-                      partn_role = 'LF' ) TO partners.
+                       partn_role = gc_parvw-proveedor ) TO partners.
     ENDIF.
 
     " hoja de ruta
@@ -1116,7 +1098,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                     method    = 'SAVE'
                     objectkey = '%00000000001' ) TO methods.
 
-    NEW zeamcl_utilitarios( )->crear_orden( EXPORTING it_methods      = methods
+    eam_utilities->crear_orden( EXPORTING it_methods      = methods
                                                       it_header       = headers
                                                       it_partner      = partners
                                                       it_tasklist     = tasklists
@@ -1140,7 +1122,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                INNER JOIN
                  ihpa AS b ON b~objnr = a~objnr
         WHERE aufnr = @aufnr
-          AND parvw = 'VU'
+          AND parvw = @gc_parvw-usr_responsable
         INTO @DATA(l_parnr).
 
       APPEND VALUE #( refnumber  = '000001'
@@ -1149,14 +1131,14 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                       objectkey  = aufnr ) TO methods.
 
       APPEND VALUE #( orderid        = aufnr
-                      partn_role     = 'VU'
-                      partn_role_old = 'VU'
+                      partn_role     = gc_parvw-usr_responsable
+                      partn_role_old = gc_parvw-usr_responsable
                       partner        = crear_orden-responsable
                       partner_old    = l_parnr ) TO partners.
 
       APPEND VALUE #( orderid        = aufnr
                       partn_role     = abap_on
-                      partn_role_old = 'VU'
+                      partn_role_old = gc_parvw-usr_responsable
                       partner        = abap_on
                       partner_old    = l_parnr ) TO partner_ups.
     ENDIF.
@@ -1218,7 +1200,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
     ENDIF.
 
     IF returns IS INITIAL.
-      NEW zeamcl_utilitarios( )->actualizar_factor_operacion( EXPORTING it_methods        = methods
+      eam_utilities->actualizar_factor_operacion( EXPORTING it_methods        = methods
                                                                         it_partner        = partners
                                                                         it_partner_up     = partner_ups
                                                                         it_olist_relation = olist_relations
@@ -1233,7 +1215,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
       MESSAGE e000 WITH 'No se ha definido el estatus a modificar' RAISING error.
     ENDIF.
 
-    NEW zeamcl_utilitarios( )->modificar_aviso_status_usuario(
+    eam_utilities->modificar_aviso_status_usuario(
           EXPORTING  i_objnr       = objnr
                      i_user_status = constant_global-aviso_modificar_status_usuario
           EXCEPTIONS error         = 1 ).
@@ -1294,36 +1276,34 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   METHOD build_list_caracteri_averia.
     DATA caracteri_averia LIKE LINE OF caracteri_averias.
 
+    " Averías (codegruppe + code)
     DO 5 TIMES.
       ASSIGN COMPONENT |CODEGRUPPE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<codegrup>).
-      IF sy-subrc = 0.
-        IF <codegrup> IS NOT INITIAL.
-          ASSIGN COMPONENT |CODE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<code>).
-          IF sy-subrc = 0.
-            IF <code> IS NOT INITIAL.
-              CONCATENATE <codegrup> <code> INTO caracteri_averia-name_and_value.
-              APPEND caracteri_averia TO caracteri_averias.
-            ENDIF.
-          ENDIF.
-        ENDIF.
-      ELSE.
+      IF sy-subrc <> 0.
         EXIT.
       ENDIF.
+      CHECK <codegrup> IS NOT INITIAL.
+
+      ASSIGN COMPONENT |CODE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<code>).
+      CHECK sy-subrc = 0 AND <code> IS NOT INITIAL.
+
+      CONCATENATE <codegrup> <code> INTO caracteri_averia-name_and_value.
+      APPEND caracteri_averia TO caracteri_averias.
     ENDDO.
 
+    " Características (atinn + atinn_value)
     DO 5 TIMES.
       ASSIGN COMPONENT |ATINN{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<atinn>).
-      IF sy-subrc = 0.
-        IF <atinn> IS NOT INITIAL.
-          ASSIGN COMPONENT |ATINN_VALUE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<atinn_value>).
-          IF sy-subrc = 0.
-            CONCATENATE <atinn> <atinn_value> INTO caracteri_averia-name_and_value.
-            APPEND caracteri_averia TO caracteri_averias.
-          ENDIF.
-        ENDIF.
-      ELSE.
+      IF sy-subrc <> 0.
         EXIT.
       ENDIF.
+      CHECK <atinn> IS NOT INITIAL.
+
+      ASSIGN COMPONENT |ATINN_VALUE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<atinn_value>).
+      CHECK sy-subrc = 0.
+
+      CONCATENATE <atinn> <atinn_value> INTO caracteri_averia-name_and_value.
+      APPEND caracteri_averia TO caracteri_averias.
     ENDDO.
 
     SORT caracteri_averias.
@@ -1507,12 +1487,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
     edits = CORRESPONDING #( detail_locals ).
 
     LOOP AT edits ASSIGNING FIELD-SYMBOL(<edit>).
-      <edit>-plnty1 = 'A'.
-      <edit>-plnty2 = 'A'.
-      <edit>-plnty3 = 'A'.
-      <edit>-plnty4 = 'A'.
-      <edit>-plnty5 = 'A'.
-      <edit>-plnty6 = 'A'.
+      init_plnty_fields( CHANGING cs_edit = <edit> ).
     ENDLOOP.
 
     alv_modif_individual_campos( CHANGING tables = edits ).
@@ -1551,12 +1526,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
 
     " ingresar
     APPEND INITIAL LINE TO edits ASSIGNING FIELD-SYMBOL(<edit>).
-    <edit>-plnty1 = 'A'.
-    <edit>-plnty2 = 'A'.
-    <edit>-plnty3 = 'A'.
-    <edit>-plnty4 = 'A'.
-    <edit>-plnty5 = 'A'.
-    <edit>-plnty6 = 'A'.
+    init_plnty_fields( CHANGING cs_edit = <edit> ).
 
     alv_modif_masiva_campos( CHANGING   tables = edits
                              EXCEPTIONS error  = 1 ).
@@ -1580,24 +1550,13 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD check_auth.
-**    DATA(lr_vstel) = NEW zsdcl_utilitarios( )->gvstel_range( ir_bukrs = gs_const-r_bukrs ir_vstel = sel_parameter-vstel_r ).
-**
-**    LOOP AT lr_vstel INTO DATA(ls_vstel).
-**      go_ui->auth_check_vstel(
-**        EXPORTING
-**          i_vstel = ls_vstel-low
-**          i_actvt = '03'
-**        EXCEPTIONS
-**          error   = 1
-**      ).
-**      IF sy-subrc <> 0.
-**        RAISE error.
-**      ENDIF.
-**    ENDLOOP.
+    " TODO: Implementar verificación de autorización
+    " cuando se definan los objetos de autorización correspondientes
   ENDMETHOD.
 
   METHOD constructor.
-    utilities = NEW #( ).
+    utilities     = NEW #( ).
+    eam_utilities = NEW #( ).
 
     TRY.
         DATA(lo_ce) = NEW zcl_admin_constants( pi_modul = 'EAM'
@@ -1821,27 +1780,14 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_avisos.
-    IF details IS NOT INITIAL.
-      SELECT a~qmnum
-             a~equnr
-             b~qmart
-             b~erdat
-             b~mzeit
-             b~objnr
-             b~qmdab
-             b~zzlegado
-             b~zzcodleg
-             b~zzranking
-             b~zzrecomen
-             b~zzpeso_calculado
-        INTO TABLE qmih_p1s
-        FROM qmih AS a
-               INNER JOIN
-                 qmel AS b ON a~qmnum = b~qmnum
-        FOR ALL ENTRIES IN details
-        WHERE equnr = details-equnr.
+    " Construir rango de equnr a partir de details para unificar el SELECT
+    DATA l_equnr_range TYPE RANGE OF equi-equnr.
 
+    IF details IS NOT INITIAL.
+      l_equnr_range = VALUE #( FOR det IN details
+                               ( sign = 'I' option = 'EQ' low = det-equnr ) ).
     ELSEIF qmnums IS NOT INITIAL.
+      " Buscar directamente por qmnum
       SELECT a~qmnum
              a~equnr
              b~qmart
@@ -1860,6 +1806,26 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                  qmel AS b ON a~qmnum = b~qmnum
         FOR ALL ENTRIES IN qmnums
         WHERE a~qmnum = qmnums-low.
+    ENDIF.
+
+    IF l_equnr_range IS NOT INITIAL.
+      SELECT a~qmnum
+             a~equnr
+             b~qmart
+             b~erdat
+             b~mzeit
+             b~objnr
+             b~qmdab
+             b~zzlegado
+             b~zzcodleg
+             b~zzranking
+             b~zzrecomen
+             b~zzpeso_calculado
+        INTO TABLE qmih_p1s
+        FROM qmih AS a
+               INNER JOIN
+                 qmel AS b ON a~qmnum = b~qmnum
+        WHERE a~equnr IN @l_equnr_range.
     ENDIF.
 
     " excluir avisos cerrados
@@ -2198,7 +2164,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
         FROM jest
         FOR ALL ENTRIES IN @equis
         WHERE objnr = @equis-objnr
-          AND stat  = 'I0072'.
+          AND stat  = @gc_status-equipo_cerrado.
 
       SORT lt_jest BY objnr.
       DELETE lt_jest WHERE inact = abap_on.
@@ -2384,7 +2350,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   METHOD get_hojaruta_dinamica.
     DATA plkz LIKE LINE OF plkzs.
 
-    DO 6 TIMES.
+    DO gc_max_plkz_slots TIMES.
       ASSIGN COMPONENT |equnr{ sy-index }| OF STRUCTURE detail_dynamic TO FIELD-SYMBOL(<equnr>).
       IF sy-subrc = 0.
         plkz-equnr = <equnr>.
@@ -2526,19 +2492,20 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
             l_full_name = |{ <lfa1>-name1 } { <lfa1>-name2 }|.
           ENDIF.
 
-          IF <ihpa>-parvw = 'AB'.
-            <orden>-parnr_ab      = <ihpa>-parnr.
-            <orden>-parnr_ab_text = l_full_name.
-          ELSEIF <ihpa>-parvw = 'VU'.
-            <orden>-parnr_vu      = <ihpa>-parnr.
-            <orden>-parnr_vu_text = l_full_name.
-          ELSEIF <ihpa>-parvw = 'LF'.
-            <orden>-parnr_pr      = <ihpa>-parnr.
-            <orden>-parnr_pr_text = l_full_name.
-          ELSEIF <ihpa>-parvw = 'VW'.
-            <orden>-parnr_vw      = <ihpa>-parnr.
-            <orden>-parnr_vw_text = l_full_name.
-          ENDIF.
+          CASE <ihpa>-parvw.
+            WHEN gc_parvw-dpto_responsable.
+              <orden>-parnr_ab      = <ihpa>-parnr.
+              <orden>-parnr_ab_text = l_full_name.
+            WHEN gc_parvw-usr_responsable.
+              <orden>-parnr_vu      = <ihpa>-parnr.
+              <orden>-parnr_vu_text = l_full_name.
+            WHEN gc_parvw-proveedor.
+              <orden>-parnr_pr      = <ihpa>-parnr.
+              <orden>-parnr_pr_text = l_full_name.
+            WHEN gc_parvw-responsable.
+              <orden>-parnr_vw      = <ihpa>-parnr.
+              <orden>-parnr_vw_text = l_full_name.
+          ENDCASE.
         ENDLOOP.
       ENDIF.
 
@@ -3006,82 +2973,33 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_hojaruta_dynamic.
-    TYPES: BEGIN OF ty_plkz1,
-             equnr1 TYPE equnr,
-             plnty1 TYPE plkz-plnty,
-             plnnr1 TYPE plkz-plnnr,
-             plnal1 TYPE plkz-plnal,
-             aufkt1 TYPE plpo-aufkt,
-           END OF ty_plkz1.
-
-    TYPES: BEGIN OF ty_plkz2,
-             equnr2 TYPE equnr,
-             plnty2 TYPE plkz-plnty,
-             plnnr2 TYPE plkz-plnnr,
-             plnal2 TYPE plkz-plnal,
-             aufkt2 TYPE plpo-aufkt,
-           END OF ty_plkz2.
-
-    TYPES: BEGIN OF ty_plkz3,
-             equnr3 TYPE equnr,
-             plnty3 TYPE plkz-plnty,
-             plnnr3 TYPE plkz-plnnr,
-             plnal3 TYPE plkz-plnal,
-             aufkt3 TYPE plpo-aufkt,
-           END OF ty_plkz3.
-
-    TYPES: BEGIN OF ty_plkz4,
-             equnr4 TYPE equnr,
-             plnty4 TYPE plkz-plnty,
-             plnnr4 TYPE plkz-plnnr,
-             plnal4 TYPE plkz-plnal,
-             aufkt4 TYPE plpo-aufkt,
-           END OF ty_plkz4.
-
-    TYPES: BEGIN OF ty_plkz5,
-             equnr5 TYPE equnr,
-             plnty5 TYPE plkz-plnty,
-             plnnr5 TYPE plkz-plnnr,
-             plnal5 TYPE plkz-plnal,
-             aufkt5 TYPE plpo-aufkt,
-           END OF ty_plkz5.
-
-    TYPES: BEGIN OF ty_plkz6,
-             equnr6 TYPE equnr,
-             plnty6 TYPE plkz-plnty,
-             plnnr6 TYPE plkz-plnnr,
-             plnal6 TYPE plkz-plnal,
-             aufkt6 TYPE plpo-aufkt,
-           END OF ty_plkz6.
-
-    DATA plkz1 TYPE ty_plkz1.
-    DATA plkz2 TYPE ty_plkz2.
-    DATA plkz3 TYPE ty_plkz3.
-    DATA plkz4 TYPE ty_plkz4.
-    DATA plkz5 TYPE ty_plkz5.
-    DATA plkz6 TYPE ty_plkz6.
-
+    " Asignación dinámica en lugar de 6 tipos duplicados
     LOOP AT plkzs ASSIGNING FIELD-SYMBOL(<plkz>).
-      CASE sy-tabix.
-        WHEN 1.
-          plkz1 = <plkz>.
-          MOVE-CORRESPONDING plkz1 TO cs_detail_dynamic.
-        WHEN 2.
-          plkz2 = <plkz>.
-          MOVE-CORRESPONDING plkz2 TO cs_detail_dynamic.
-        WHEN 3.
-          plkz3 = <plkz>.
-          MOVE-CORRESPONDING plkz3 TO cs_detail_dynamic.
-        WHEN 4.
-          plkz4 = <plkz>.
-          MOVE-CORRESPONDING plkz4 TO cs_detail_dynamic.
-        WHEN 5.
-          plkz5 = <plkz>.
-          MOVE-CORRESPONDING plkz5 TO cs_detail_dynamic.
-        WHEN 6.
-          plkz6 = <plkz>.
-          MOVE-CORRESPONDING plkz6 TO cs_detail_dynamic.
-      ENDCASE.
+      DATA(idx) = sy-tabix.
+      IF idx > 6.
+        EXIT.
+      ENDIF.
+
+      ASSIGN COMPONENT |EQUNR{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<equnr>).
+      IF sy-subrc = 0.
+        <equnr> = <plkz>-equnr.
+      ENDIF.
+      ASSIGN COMPONENT |PLNTY{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnty>).
+      IF sy-subrc = 0.
+        <plnty> = <plkz>-plnty.
+      ENDIF.
+      ASSIGN COMPONENT |PLNNR{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnnr>).
+      IF sy-subrc = 0.
+        <plnnr> = <plkz>-plnnr.
+      ENDIF.
+      ASSIGN COMPONENT |PLNAL{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnal>).
+      IF sy-subrc = 0.
+        <plnal> = <plkz>-plnal.
+      ENDIF.
+      ASSIGN COMPONENT |AUFKT{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<aufkt>).
+      IF sy-subrc = 0.
+        <aufkt> = <plkz>-aufkt.
+      ENDIF.
     ENDLOOP.
   ENDMETHOD.
 
@@ -3266,7 +3184,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD clear_plkz_fields.
-    DO 6 TIMES.
+    DO gc_max_plkz_slots TIMES.
       DATA(idx) = sy-index.
 
       ASSIGN COMPONENT |PLNNR{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<plnnr>).
@@ -3306,5 +3224,21 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
         <aufkt> = 1.
       ENDIF.
     ENDDO.
+  ENDMETHOD.
+
+  METHOD init_plnty_fields.
+    " Inicializa plnty1..6 con valor 'A' dinámicamente
+    DO gc_max_plkz_slots TIMES.
+      ASSIGN COMPONENT |PLNTY{ sy-index }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<plnty>).
+      IF sy-subrc = 0.
+        <plnty> = 'A'.
+      ENDIF.
+    ENDDO.
+  ENDMETHOD.
+
+  METHOD get_fcat_crear_orden.
+    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+      EXPORTING i_structure_name = 'ZSTEAM_13_ALV_EDIT_CREA_ORDEN'
+      CHANGING  ct_fieldcat      = rt_fcats.
   ENDMETHOD.
 ENDCLASS.
