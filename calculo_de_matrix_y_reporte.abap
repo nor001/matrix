@@ -434,6 +434,23 @@ CLASS zcleam_13_reporte_matriz DEFINITION
     " objetos
     DATA utilities                  TYPE REF TO zcl_utilities.
     DATA alv_modif_campos_crear_ord TYPE REF TO cl_gui_alv_grid.
+    CONSTANTS:
+      " Roles de interlocutor (partner roles)
+      BEGIN OF gc_parvw,
+        dpto_responsable TYPE ihpa-parvw VALUE 'AB',
+        usr_responsable  TYPE ihpa-parvw VALUE 'VU',
+        proveedor        TYPE ihpa-parvw VALUE 'LF',
+        responsable      TYPE ihpa-parvw VALUE 'VW',
+      END OF gc_parvw.
+    CONSTANTS:
+      " Status del sistema
+      BEGIN OF gc_status,
+        equipo_cerrado TYPE jest-stat VALUE 'I0072',
+      END OF gc_status.
+    CONSTANTS:
+      " Número máximo de slots de hoja de ruta
+      gc_max_plkz_slots TYPE i VALUE 6.
+
     DATA:
       " constantes
       BEGIN OF gs_tipo_objeto_tecnico,
@@ -1080,7 +1097,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                       objectkey  = '%00000000001' ) TO methods.
 
       APPEND VALUE #( partner    = crear_orden-contratista
-                      partn_role = 'LF' ) TO partners.
+                       partn_role = gc_parvw-proveedor ) TO partners.
     ENDIF.
 
     " hoja de ruta
@@ -1140,7 +1157,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                INNER JOIN
                  ihpa AS b ON b~objnr = a~objnr
         WHERE aufnr = @aufnr
-          AND parvw = 'VU'
+          AND parvw = @gc_parvw-usr_responsable
         INTO @DATA(l_parnr).
 
       APPEND VALUE #( refnumber  = '000001'
@@ -1149,14 +1166,14 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                       objectkey  = aufnr ) TO methods.
 
       APPEND VALUE #( orderid        = aufnr
-                      partn_role     = 'VU'
-                      partn_role_old = 'VU'
+                      partn_role     = gc_parvw-usr_responsable
+                      partn_role_old = gc_parvw-usr_responsable
                       partner        = crear_orden-responsable
                       partner_old    = l_parnr ) TO partners.
 
       APPEND VALUE #( orderid        = aufnr
                       partn_role     = abap_on
-                      partn_role_old = 'VU'
+                      partn_role_old = gc_parvw-usr_responsable
                       partner        = abap_on
                       partner_old    = l_parnr ) TO partner_ups.
     ENDIF.
@@ -2198,7 +2215,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
         FROM jest
         FOR ALL ENTRIES IN @equis
         WHERE objnr = @equis-objnr
-          AND stat  = 'I0072'.
+          AND stat  = @gc_status-equipo_cerrado.
 
       SORT lt_jest BY objnr.
       DELETE lt_jest WHERE inact = abap_on.
@@ -2526,19 +2543,20 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
             l_full_name = |{ <lfa1>-name1 } { <lfa1>-name2 }|.
           ENDIF.
 
-          IF <ihpa>-parvw = 'AB'.
-            <orden>-parnr_ab      = <ihpa>-parnr.
-            <orden>-parnr_ab_text = l_full_name.
-          ELSEIF <ihpa>-parvw = 'VU'.
-            <orden>-parnr_vu      = <ihpa>-parnr.
-            <orden>-parnr_vu_text = l_full_name.
-          ELSEIF <ihpa>-parvw = 'LF'.
-            <orden>-parnr_pr      = <ihpa>-parnr.
-            <orden>-parnr_pr_text = l_full_name.
-          ELSEIF <ihpa>-parvw = 'VW'.
-            <orden>-parnr_vw      = <ihpa>-parnr.
-            <orden>-parnr_vw_text = l_full_name.
-          ENDIF.
+          CASE <ihpa>-parvw.
+            WHEN gc_parvw-dpto_responsable.
+              <orden>-parnr_ab      = <ihpa>-parnr.
+              <orden>-parnr_ab_text = l_full_name.
+            WHEN gc_parvw-usr_responsable.
+              <orden>-parnr_vu      = <ihpa>-parnr.
+              <orden>-parnr_vu_text = l_full_name.
+            WHEN gc_parvw-proveedor.
+              <orden>-parnr_pr      = <ihpa>-parnr.
+              <orden>-parnr_pr_text = l_full_name.
+            WHEN gc_parvw-responsable.
+              <orden>-parnr_vw      = <ihpa>-parnr.
+              <orden>-parnr_vw_text = l_full_name.
+          ENDCASE.
         ENDLOOP.
       ENDIF.
 
@@ -3006,82 +3024,33 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_hojaruta_dynamic.
-    TYPES: BEGIN OF ty_plkz1,
-             equnr1 TYPE equnr,
-             plnty1 TYPE plkz-plnty,
-             plnnr1 TYPE plkz-plnnr,
-             plnal1 TYPE plkz-plnal,
-             aufkt1 TYPE plpo-aufkt,
-           END OF ty_plkz1.
-
-    TYPES: BEGIN OF ty_plkz2,
-             equnr2 TYPE equnr,
-             plnty2 TYPE plkz-plnty,
-             plnnr2 TYPE plkz-plnnr,
-             plnal2 TYPE plkz-plnal,
-             aufkt2 TYPE plpo-aufkt,
-           END OF ty_plkz2.
-
-    TYPES: BEGIN OF ty_plkz3,
-             equnr3 TYPE equnr,
-             plnty3 TYPE plkz-plnty,
-             plnnr3 TYPE plkz-plnnr,
-             plnal3 TYPE plkz-plnal,
-             aufkt3 TYPE plpo-aufkt,
-           END OF ty_plkz3.
-
-    TYPES: BEGIN OF ty_plkz4,
-             equnr4 TYPE equnr,
-             plnty4 TYPE plkz-plnty,
-             plnnr4 TYPE plkz-plnnr,
-             plnal4 TYPE plkz-plnal,
-             aufkt4 TYPE plpo-aufkt,
-           END OF ty_plkz4.
-
-    TYPES: BEGIN OF ty_plkz5,
-             equnr5 TYPE equnr,
-             plnty5 TYPE plkz-plnty,
-             plnnr5 TYPE plkz-plnnr,
-             plnal5 TYPE plkz-plnal,
-             aufkt5 TYPE plpo-aufkt,
-           END OF ty_plkz5.
-
-    TYPES: BEGIN OF ty_plkz6,
-             equnr6 TYPE equnr,
-             plnty6 TYPE plkz-plnty,
-             plnnr6 TYPE plkz-plnnr,
-             plnal6 TYPE plkz-plnal,
-             aufkt6 TYPE plpo-aufkt,
-           END OF ty_plkz6.
-
-    DATA plkz1 TYPE ty_plkz1.
-    DATA plkz2 TYPE ty_plkz2.
-    DATA plkz3 TYPE ty_plkz3.
-    DATA plkz4 TYPE ty_plkz4.
-    DATA plkz5 TYPE ty_plkz5.
-    DATA plkz6 TYPE ty_plkz6.
-
+    " Asignación dinámica en lugar de 6 tipos duplicados
     LOOP AT plkzs ASSIGNING FIELD-SYMBOL(<plkz>).
-      CASE sy-tabix.
-        WHEN 1.
-          plkz1 = <plkz>.
-          MOVE-CORRESPONDING plkz1 TO cs_detail_dynamic.
-        WHEN 2.
-          plkz2 = <plkz>.
-          MOVE-CORRESPONDING plkz2 TO cs_detail_dynamic.
-        WHEN 3.
-          plkz3 = <plkz>.
-          MOVE-CORRESPONDING plkz3 TO cs_detail_dynamic.
-        WHEN 4.
-          plkz4 = <plkz>.
-          MOVE-CORRESPONDING plkz4 TO cs_detail_dynamic.
-        WHEN 5.
-          plkz5 = <plkz>.
-          MOVE-CORRESPONDING plkz5 TO cs_detail_dynamic.
-        WHEN 6.
-          plkz6 = <plkz>.
-          MOVE-CORRESPONDING plkz6 TO cs_detail_dynamic.
-      ENDCASE.
+      DATA(idx) = sy-tabix.
+      IF idx > 6.
+        EXIT.
+      ENDIF.
+
+      ASSIGN COMPONENT |EQUNR{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<equnr>).
+      IF sy-subrc = 0.
+        <equnr> = <plkz>-equnr.
+      ENDIF.
+      ASSIGN COMPONENT |PLNTY{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnty>).
+      IF sy-subrc = 0.
+        <plnty> = <plkz>-plnty.
+      ENDIF.
+      ASSIGN COMPONENT |PLNNR{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnnr>).
+      IF sy-subrc = 0.
+        <plnnr> = <plkz>-plnnr.
+      ENDIF.
+      ASSIGN COMPONENT |PLNAL{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnal>).
+      IF sy-subrc = 0.
+        <plnal> = <plkz>-plnal.
+      ENDIF.
+      ASSIGN COMPONENT |AUFKT{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<aufkt>).
+      IF sy-subrc = 0.
+        <aufkt> = <plkz>-aufkt.
+      ENDIF.
     ENDLOOP.
   ENDMETHOD.
 
