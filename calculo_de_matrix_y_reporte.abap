@@ -238,8 +238,6 @@ CLASS zcleam_13_reporte_matriz DEFINITION
 
         " tablas
         plkz                     TYPE gtt_plkz,
-*        caracteri_averia            TYPE gtt_caracteri_averia,
-*        caracteri_averia_secundario TYPE gtt_caracteri_averia,
       END OF gty_detail.
     TYPES gtt_detail TYPE TABLE OF gty_detail WITH DEFAULT KEY.
     TYPES:
@@ -421,10 +419,6 @@ CLASS zcleam_13_reporte_matriz DEFINITION
     TYPES gtr_aufnr TYPE RANGE OF aufk-aufnr.
     TYPES gtr_qmnum TYPE RANGE OF qmel-qmnum.
 
-    " tablas internas
-*    DATA gt_char_filter_fcat TYPE lvc_t_fcat.
-*    DATA gt_char_filter_lvc  TYPE lvc_t_filt.
-*    DATA gd_char_filter_data TYPE REF TO data.
     " estructuras
     DATA constant_global            TYPE gty_const.
     " variables
@@ -793,7 +787,6 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                                     CHANGING  cs_fcat = <fcat> ).
 
         WHEN 'BOX'
-*          OR 'ZZLEGADO' OR 'ZZCODLEG' OR 'ZZRANKING' OR 'ZZRECOMEN'
           OR 'ZTBEAM_12_HREQPR_KTEXT'
           OR 'CREAR_O_ACTUALIZAR_AVISO' OR 'PLAZO'.
           <fcat>-tech = abap_on.
@@ -923,22 +916,6 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD alv_st.
-*    APPEND '&AQW' TO ct_excl.
-*    APPEND '&ABC' TO ct_excl.
-*    APPEND '%PC' TO ct_excl.
-*
-*    " btn
-*    DATA(lt_code) = VALUE edoc_smp_dyntxt_tab(
-*        ( icon_id = icon_generate icon_text = 'Crear/Actualizar avisos' text = 'Crear/Actualizar avisos' )
-*        ( icon_id = icon_submit icon_text = 'Crear ordenes' text = 'Crear ordenes' )
-*        ( icon_text = 'Actualizar campos para creación de ordenes' text = 'Actualizar campos para creación de ordenes' )
-*        ( icon_text = 'Asignación masiva de HR para creación de ordenes' text = 'Asignación masiva de HR para creación de ordenes' ) ).
-*
-*    PERFORM dynamic_report_fcodes IN PROGRAM rhteiln0
-*      TABLES lt_code
-*      USING  ct_excl
-*             ''
-*             ''.
     SET PF-STATUS 'ALV_ST' EXCLUDING ct_excl OF PROGRAM sy-cprog.
   ENDMETHOD.
 
@@ -1597,20 +1574,8 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD check_auth.
-**    DATA(lr_vstel) = NEW zsdcl_utilitarios( )->gvstel_range( ir_bukrs = gs_const-r_bukrs ir_vstel = sel_parameter-vstel_r ).
-**
-**    LOOP AT lr_vstel INTO DATA(ls_vstel).
-**      go_ui->auth_check_vstel(
-**        EXPORTING
-**          i_vstel = ls_vstel-low
-**          i_actvt = '03'
-**        EXCEPTIONS
-**          error   = 1
-**      ).
-**      IF sy-subrc <> 0.
-**        RAISE error.
-**      ENDIF.
-**    ENDLOOP.
+    " TODO: Implementar verificación de autorización
+    " cuando se definan los objetos de autorización correspondientes
   ENDMETHOD.
 
   METHOD constructor.
