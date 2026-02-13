@@ -2971,30 +2971,28 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
 
   METHOD set_hojaruta_dynamic.
     DO 6 TIMES.
-      DATA(idx) = sy-index.
-
-      READ TABLE plkzs INDEX idx ASSIGNING FIELD-SYMBOL(<plkz>).
+      READ TABLE plkzs INDEX sy-index ASSIGNING FIELD-SYMBOL(<plkz>).
       IF sy-subrc <> 0.
         EXIT.
       ENDIF.
 
-      ASSIGN COMPONENT |EQUNR{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<equnr>).
+      ASSIGN COMPONENT |EQUNR{ sy-index }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<equnr>).
       IF sy-subrc = 0.
         <equnr> = <plkz>-equnr.
       ENDIF.
-      ASSIGN COMPONENT |PLNTY{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnty>).
+      ASSIGN COMPONENT |PLNTY{ sy-index }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnty>).
       IF sy-subrc = 0.
         <plnty> = <plkz>-plnty.
       ENDIF.
-      ASSIGN COMPONENT |PLNNR{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnnr>).
+      ASSIGN COMPONENT |PLNNR{ sy-index }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnnr>).
       IF sy-subrc = 0.
         <plnnr> = <plkz>-plnnr.
       ENDIF.
-      ASSIGN COMPONENT |PLNAL{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnal>).
+      ASSIGN COMPONENT |PLNAL{ sy-index }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnal>).
       IF sy-subrc = 0.
         <plnal> = <plkz>-plnal.
       ENDIF.
-      ASSIGN COMPONENT |AUFKT{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<aufkt>).
+      ASSIGN COMPONENT |AUFKT{ sy-index }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<aufkt>).
       IF sy-subrc = 0.
         <aufkt> = <plkz>-aufkt.
       ENDIF.
