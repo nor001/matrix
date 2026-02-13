@@ -238,8 +238,6 @@ CLASS zcleam_13_reporte_matriz DEFINITION
 
         " tablas
         plkz                     TYPE gtt_plkz,
-*        caracteri_averia            TYPE gtt_caracteri_averia,
-*        caracteri_averia_secundario TYPE gtt_caracteri_averia,
       END OF gty_detail.
     TYPES gtt_detail TYPE TABLE OF gty_detail WITH DEFAULT KEY.
     TYPES:
@@ -422,9 +420,6 @@ CLASS zcleam_13_reporte_matriz DEFINITION
     TYPES gtr_qmnum TYPE RANGE OF qmel-qmnum.
 
     " tablas internas
-*    DATA gt_char_filter_fcat TYPE lvc_t_fcat.
-*    DATA gt_char_filter_lvc  TYPE lvc_t_filt.
-*    DATA gd_char_filter_data TYPE REF TO data.
     " estructuras
     DATA constant_global            TYPE gty_const.
     " variables
@@ -489,7 +484,7 @@ CLASS zcleam_13_reporte_matriz DEFINITION
       EXPORTING caracteri_averias TYPE gtt_caracteri_averia
       CHANGING  !line             TYPE any.
 
-    METHODS button_crear_udpate_avisos
+    METHODS button_crear_update_avisos
       IMPORTING  matx_c                 TYPE ztbeam_12_matx_c
       CHANGING   detail_dynamics_global TYPE REF TO data
       EXCEPTIONS error.
@@ -776,7 +771,6 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                                     CHANGING  cs_fcat = <fcat> ).
 
         WHEN 'BOX'
-*          OR 'ZZLEGADO' OR 'ZZCODLEG' OR 'ZZRANKING' OR 'ZZRECOMEN'
           OR 'ZTBEAM_12_HREQPR_KTEXT'
           OR 'CREAR_O_ACTUALIZAR_AVISO' OR 'PLAZO'.
           <fcat>-tech = abap_on.
@@ -906,22 +900,6 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD alv_st.
-*    APPEND '&AQW' TO ct_excl.
-*    APPEND '&ABC' TO ct_excl.
-*    APPEND '%PC' TO ct_excl.
-*
-*    " btn
-*    DATA(lt_code) = VALUE edoc_smp_dyntxt_tab(
-*        ( icon_id = icon_generate icon_text = 'Crear/Actualizar avisos' text = 'Crear/Actualizar avisos' )
-*        ( icon_id = icon_submit icon_text = 'Crear ordenes' text = 'Crear ordenes' )
-*        ( icon_text = 'Actualizar campos para creación de ordenes' text = 'Actualizar campos para creación de ordenes' )
-*        ( icon_text = 'Asignación masiva de HR para creación de ordenes' text = 'Asignación masiva de HR para creación de ordenes' ) ).
-*
-*    PERFORM dynamic_report_fcodes IN PROGRAM rhteiln0
-*      TABLES lt_code
-*      USING  ct_excl
-*             ''
-*             ''.
     SET PF-STATUS 'ALV_ST' EXCLUDING ct_excl OF PROGRAM sy-cprog.
   ENDMETHOD.
 
@@ -956,7 +934,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
             CALL TRANSACTION 'IW33' AND SKIP FIRST SCREEN.
         ENDCASE.
       WHEN 'FC01'.
-        button_crear_udpate_avisos( EXPORTING  matx_c                 = maestro_zpeam0012_global-matx_c
+        button_crear_update_avisos( EXPORTING  matx_c                 = maestro_zpeam0012_global-matx_c
                                     CHANGING   detail_dynamics_global = detail_dynamics_global
                                     EXCEPTIONS error                  = 1 ).
         IF sy-subrc <> 0.
@@ -1329,7 +1307,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
     SORT caracteri_averias.
   ENDMETHOD.
 
-  METHOD button_crear_udpate_avisos.
+  METHOD button_crear_update_avisos.
     DATA detail_locals TYPE gtt_detail.
     DATA qmnums        TYPE gtr_qmnum.
 
@@ -1507,12 +1485,12 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
     edits = CORRESPONDING #( detail_locals ).
 
     LOOP AT edits ASSIGNING FIELD-SYMBOL(<edit>).
-      <edit>-plnty1 = 'A'.
-      <edit>-plnty2 = 'A'.
-      <edit>-plnty3 = 'A'.
-      <edit>-plnty4 = 'A'.
-      <edit>-plnty5 = 'A'.
-      <edit>-plnty6 = 'A'.
+      DO 6 TIMES.
+        ASSIGN COMPONENT |PLNTY{ sy-index }| OF STRUCTURE <edit> TO FIELD-SYMBOL(<plnty>).
+        IF sy-subrc = 0.
+          <plnty> = 'A'.
+        ENDIF.
+      ENDDO.
     ENDLOOP.
 
     alv_modif_individual_campos( CHANGING tables = edits ).
@@ -1551,12 +1529,12 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
 
     " ingresar
     APPEND INITIAL LINE TO edits ASSIGNING FIELD-SYMBOL(<edit>).
-    <edit>-plnty1 = 'A'.
-    <edit>-plnty2 = 'A'.
-    <edit>-plnty3 = 'A'.
-    <edit>-plnty4 = 'A'.
-    <edit>-plnty5 = 'A'.
-    <edit>-plnty6 = 'A'.
+    DO 6 TIMES.
+      ASSIGN COMPONENT |PLNTY{ sy-index }| OF STRUCTURE <edit> TO FIELD-SYMBOL(<plnty_init>).
+      IF sy-subrc = 0.
+        <plnty_init> = 'A'.
+      ENDIF.
+    ENDDO.
 
     alv_modif_masiva_campos( CHANGING   tables = edits
                              EXCEPTIONS error  = 1 ).
@@ -1580,20 +1558,6 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD check_auth.
-**    DATA(lr_vstel) = NEW zsdcl_utilitarios( )->gvstel_range( ir_bukrs = gs_const-r_bukrs ir_vstel = sel_parameter-vstel_r ).
-**
-**    LOOP AT lr_vstel INTO DATA(ls_vstel).
-**      go_ui->auth_check_vstel(
-**        EXPORTING
-**          i_vstel = ls_vstel-low
-**          i_actvt = '03'
-**        EXCEPTIONS
-**          error   = 1
-**      ).
-**      IF sy-subrc <> 0.
-**        RAISE error.
-**      ENDIF.
-**    ENDLOOP.
   ENDMETHOD.
 
   METHOD constructor.
@@ -2663,7 +2627,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
         <box> = abap_on.
       ENDLOOP.
 
-      button_crear_udpate_avisos( EXPORTING  matx_c                 = maestro_zpeam0012_global-matx_c
+      button_crear_update_avisos( EXPORTING  matx_c                 = maestro_zpeam0012_global-matx_c
                                   CHANGING   detail_dynamics_global = detail_dynamics_global
                                   EXCEPTIONS error                  = 1 ).
       IF sy-subrc <> 0.
@@ -3006,83 +2970,35 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_hojaruta_dynamic.
-    TYPES: BEGIN OF ty_plkz1,
-             equnr1 TYPE equnr,
-             plnty1 TYPE plkz-plnty,
-             plnnr1 TYPE plkz-plnnr,
-             plnal1 TYPE plkz-plnal,
-             aufkt1 TYPE plpo-aufkt,
-           END OF ty_plkz1.
+    DO 6 TIMES.
+      DATA(idx) = sy-index.
 
-    TYPES: BEGIN OF ty_plkz2,
-             equnr2 TYPE equnr,
-             plnty2 TYPE plkz-plnty,
-             plnnr2 TYPE plkz-plnnr,
-             plnal2 TYPE plkz-plnal,
-             aufkt2 TYPE plpo-aufkt,
-           END OF ty_plkz2.
+      READ TABLE plkzs INDEX idx ASSIGNING FIELD-SYMBOL(<plkz>).
+      IF sy-subrc <> 0.
+        EXIT.
+      ENDIF.
 
-    TYPES: BEGIN OF ty_plkz3,
-             equnr3 TYPE equnr,
-             plnty3 TYPE plkz-plnty,
-             plnnr3 TYPE plkz-plnnr,
-             plnal3 TYPE plkz-plnal,
-             aufkt3 TYPE plpo-aufkt,
-           END OF ty_plkz3.
-
-    TYPES: BEGIN OF ty_plkz4,
-             equnr4 TYPE equnr,
-             plnty4 TYPE plkz-plnty,
-             plnnr4 TYPE plkz-plnnr,
-             plnal4 TYPE plkz-plnal,
-             aufkt4 TYPE plpo-aufkt,
-           END OF ty_plkz4.
-
-    TYPES: BEGIN OF ty_plkz5,
-             equnr5 TYPE equnr,
-             plnty5 TYPE plkz-plnty,
-             plnnr5 TYPE plkz-plnnr,
-             plnal5 TYPE plkz-plnal,
-             aufkt5 TYPE plpo-aufkt,
-           END OF ty_plkz5.
-
-    TYPES: BEGIN OF ty_plkz6,
-             equnr6 TYPE equnr,
-             plnty6 TYPE plkz-plnty,
-             plnnr6 TYPE plkz-plnnr,
-             plnal6 TYPE plkz-plnal,
-             aufkt6 TYPE plpo-aufkt,
-           END OF ty_plkz6.
-
-    DATA plkz1 TYPE ty_plkz1.
-    DATA plkz2 TYPE ty_plkz2.
-    DATA plkz3 TYPE ty_plkz3.
-    DATA plkz4 TYPE ty_plkz4.
-    DATA plkz5 TYPE ty_plkz5.
-    DATA plkz6 TYPE ty_plkz6.
-
-    LOOP AT plkzs ASSIGNING FIELD-SYMBOL(<plkz>).
-      CASE sy-tabix.
-        WHEN 1.
-          plkz1 = <plkz>.
-          MOVE-CORRESPONDING plkz1 TO cs_detail_dynamic.
-        WHEN 2.
-          plkz2 = <plkz>.
-          MOVE-CORRESPONDING plkz2 TO cs_detail_dynamic.
-        WHEN 3.
-          plkz3 = <plkz>.
-          MOVE-CORRESPONDING plkz3 TO cs_detail_dynamic.
-        WHEN 4.
-          plkz4 = <plkz>.
-          MOVE-CORRESPONDING plkz4 TO cs_detail_dynamic.
-        WHEN 5.
-          plkz5 = <plkz>.
-          MOVE-CORRESPONDING plkz5 TO cs_detail_dynamic.
-        WHEN 6.
-          plkz6 = <plkz>.
-          MOVE-CORRESPONDING plkz6 TO cs_detail_dynamic.
-      ENDCASE.
-    ENDLOOP.
+      ASSIGN COMPONENT |EQUNR{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<equnr>).
+      IF sy-subrc = 0.
+        <equnr> = <plkz>-equnr.
+      ENDIF.
+      ASSIGN COMPONENT |PLNTY{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnty>).
+      IF sy-subrc = 0.
+        <plnty> = <plkz>-plnty.
+      ENDIF.
+      ASSIGN COMPONENT |PLNNR{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnnr>).
+      IF sy-subrc = 0.
+        <plnnr> = <plkz>-plnnr.
+      ENDIF.
+      ASSIGN COMPONENT |PLNAL{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<plnal>).
+      IF sy-subrc = 0.
+        <plnal> = <plkz>-plnal.
+      ENDIF.
+      ASSIGN COMPONENT |AUFKT{ idx }| OF STRUCTURE cs_detail_dynamic TO FIELD-SYMBOL(<aufkt>).
+      IF sy-subrc = 0.
+        <aufkt> = <plkz>-aufkt.
+      ENDIF.
+    ENDDO.
   ENDMETHOD.
 
   METHOD set_hojaruta_equipo_principal.
