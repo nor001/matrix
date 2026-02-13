@@ -3270,23 +3270,34 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
       DATA(idx) = sy-index.
 
       ASSIGN COMPONENT |PLNNR{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<plnnr>).
+      IF sy-subrc <> 0.
+        EXIT.
+      ENDIF.
       ASSIGN COMPONENT |PLNAL{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<plnal>).
+      IF sy-subrc <> 0.
+        EXIT.
+      ENDIF.
       ASSIGN COMPONENT |PLNTY{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<plnty>).
+      IF sy-subrc <> 0.
+        EXIT.
+      ENDIF.
       ASSIGN COMPONENT |AUFKT{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<aufkt>).
-
       IF sy-subrc <> 0.
         EXIT.
       ENDIF.
 
-      DATA(l_equnr_empty) = abap_false.
       IF idx > 1.
         ASSIGN COMPONENT |EQUNR{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<equnr>).
         IF sy-subrc = 0 AND <equnr> IS INITIAL.
-          l_equnr_empty = abap_true.
+          CLEAR <plnty>.
+          CLEAR <plnnr>.
+          CLEAR <plnal>.
+          CLEAR <aufkt>.
+          CONTINUE.
         ENDIF.
       ENDIF.
 
-      IF l_equnr_empty = abap_true OR <plnnr> IS INITIAL OR <plnal> IS INITIAL.
+      IF <plnnr> IS INITIAL OR <plnal> IS INITIAL.
         CLEAR <plnty>.
         CLEAR <plnnr>.
         CLEAR <plnal>.
