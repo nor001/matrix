@@ -948,34 +948,23 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
             SET PARAMETER ID 'ANR' FIELD detail-aufnr.
             CALL TRANSACTION 'IW33' AND SKIP FIRST SCREEN.
         ENDCASE.
-      WHEN 'FC01'.
-        button_crear_udpate_avisos( EXPORTING  matx_c                 = maestro_zpeam0012_global-matx_c
-                                    CHANGING   detail_dynamics_global = detail_dynamics_global
-                                    EXCEPTIONS error                  = 1 ).
-        IF sy-subrc <> 0.
-          utilities->message_show( ).
-        ENDIF.
-        utilities->alvlvc_refresh( CHANGING cs_sel = cs_sel ).
+      WHEN 'FC01' OR 'FC02' OR 'FC03' OR 'FC04'.
+        CASE i_ucomm.
+          WHEN 'FC01'.
+            button_crear_udpate_avisos( EXPORTING  matx_c                 = maestro_zpeam0012_global-matx_c
+                                        CHANGING   detail_dynamics_global = detail_dynamics_global
+                                        EXCEPTIONS error                  = 1 ).
+          WHEN 'FC02'.
+            button_crear_ordenes( CHANGING   detail_dynamic = detail_dynamics_global
+                                  EXCEPTIONS error          = 1 ).
+          WHEN 'FC03'.
+            button_modify_individual_flds( CHANGING   detail_dynamic = detail_dynamics_global
+                                           EXCEPTIONS error          = 1 ).
+          WHEN 'FC04'.
+            button_modify_mass_flds( CHANGING   detail_dynamic = detail_dynamics_global
+                                     EXCEPTIONS error          = 1 ).
+        ENDCASE.
 
-      WHEN 'FC02'.
-        button_crear_ordenes( CHANGING   detail_dynamic = detail_dynamics_global
-                              EXCEPTIONS error          = 1 ).
-        IF sy-subrc <> 0.
-          utilities->message_show( ).
-        ENDIF.
-        utilities->alvlvc_refresh( CHANGING cs_sel = cs_sel ).
-
-      WHEN 'FC03'.
-        button_modify_individual_flds( CHANGING   detail_dynamic = detail_dynamics_global
-                                       EXCEPTIONS error          = 1 ).
-        IF sy-subrc <> 0.
-          utilities->message_show( ).
-        ENDIF.
-        utilities->alvlvc_refresh( CHANGING cs_sel = cs_sel ).
-
-      WHEN 'FC04'.
-        button_modify_mass_flds( CHANGING   detail_dynamic = detail_dynamics_global
-                                 EXCEPTIONS error          = 1 ).
         IF sy-subrc <> 0.
           utilities->message_show( ).
         ENDIF.
@@ -1287,36 +1276,34 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
   METHOD build_list_caracteri_averia.
     DATA caracteri_averia LIKE LINE OF caracteri_averias.
 
+    " Averías (codegruppe + code)
     DO 5 TIMES.
       ASSIGN COMPONENT |CODEGRUPPE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<codegrup>).
-      IF sy-subrc = 0.
-        IF <codegrup> IS NOT INITIAL.
-          ASSIGN COMPONENT |CODE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<code>).
-          IF sy-subrc = 0.
-            IF <code> IS NOT INITIAL.
-              CONCATENATE <codegrup> <code> INTO caracteri_averia-name_and_value.
-              APPEND caracteri_averia TO caracteri_averias.
-            ENDIF.
-          ENDIF.
-        ENDIF.
-      ELSE.
+      IF sy-subrc <> 0.
         EXIT.
       ENDIF.
+      CHECK <codegrup> IS NOT INITIAL.
+
+      ASSIGN COMPONENT |CODE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<code>).
+      CHECK sy-subrc = 0 AND <code> IS NOT INITIAL.
+
+      CONCATENATE <codegrup> <code> INTO caracteri_averia-name_and_value.
+      APPEND caracteri_averia TO caracteri_averias.
     ENDDO.
 
+    " Características (atinn + atinn_value)
     DO 5 TIMES.
       ASSIGN COMPONENT |ATINN{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<atinn>).
-      IF sy-subrc = 0.
-        IF <atinn> IS NOT INITIAL.
-          ASSIGN COMPONENT |ATINN_VALUE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<atinn_value>).
-          IF sy-subrc = 0.
-            CONCATENATE <atinn> <atinn_value> INTO caracteri_averia-name_and_value.
-            APPEND caracteri_averia TO caracteri_averias.
-          ENDIF.
-        ENDIF.
-      ELSE.
+      IF sy-subrc <> 0.
         EXIT.
       ENDIF.
+      CHECK <atinn> IS NOT INITIAL.
+
+      ASSIGN COMPONENT |ATINN_VALUE{ sy-index }| OF STRUCTURE line TO FIELD-SYMBOL(<atinn_value>).
+      CHECK sy-subrc = 0.
+
+      CONCATENATE <atinn> <atinn_value> INTO caracteri_averia-name_and_value.
+      APPEND caracteri_averia TO caracteri_averias.
     ENDDO.
 
     SORT caracteri_averias.
