@@ -663,6 +663,9 @@ CLASS zcleam_13_reporte_matriz DEFINITION
       IMPORTING ordens         TYPE gtt_orden
                 !detail        TYPE gty_detail
       CHANGING  detail_dynamic TYPE any.
+
+    METHODS clear_plkz_fields
+      CHANGING cs_edit TYPE any.
 ENDCLASS.
 
 
@@ -1526,54 +1529,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
       ENDIF.
 
       " clear
-      IF <edit>-plnnr1 IS INITIAL OR <edit>-plnal1 IS INITIAL.
-        CLEAR <edit>-plnty1.
-        CLEAR <edit>-plnnr1.
-        CLEAR <edit>-plnal1.
-        CLEAR <edit>-aufkt1.
-      ELSEIF <edit>-aufkt1 IS INITIAL.
-        <edit>-aufkt1 = 1.
-      ENDIF.
-      IF <edit>-equnr2 IS INITIAL OR <edit>-plnnr2 IS INITIAL OR <edit>-plnal2 IS INITIAL.
-        CLEAR <edit>-plnty2.
-        CLEAR <edit>-plnnr2.
-        CLEAR <edit>-plnal2.
-        CLEAR <edit>-aufkt2.
-      ELSEIF <edit>-aufkt2 IS INITIAL.
-        <edit>-aufkt2 = 1.
-      ENDIF.
-      IF <edit>-equnr3 IS INITIAL OR <edit>-plnnr3 IS INITIAL OR <edit>-plnal3 IS INITIAL.
-        CLEAR <edit>-plnty3.
-        CLEAR <edit>-plnnr3.
-        CLEAR <edit>-plnal3.
-        CLEAR <edit>-aufkt3.
-      ELSEIF <edit>-aufkt3 IS INITIAL.
-        <edit>-aufkt3 = 1.
-      ENDIF.
-      IF <edit>-equnr4 IS INITIAL OR <edit>-plnnr4 IS INITIAL OR <edit>-plnal4 IS INITIAL.
-        CLEAR <edit>-plnty4.
-        CLEAR <edit>-plnnr4.
-        CLEAR <edit>-plnal4.
-        CLEAR <edit>-aufkt4.
-      ELSEIF <edit>-aufkt4 IS INITIAL.
-        <edit>-aufkt4 = 1.
-      ENDIF.
-      IF <edit>-equnr5 IS INITIAL OR <edit>-plnnr5 IS INITIAL OR <edit>-plnal5 IS INITIAL.
-        CLEAR <edit>-plnty5.
-        CLEAR <edit>-plnnr5.
-        CLEAR <edit>-plnal5.
-        CLEAR <edit>-aufkt5.
-      ELSEIF <edit>-aufkt5 IS INITIAL.
-        <edit>-aufkt5 = 1.
-      ENDIF.
-      IF <edit>-equnr6 IS INITIAL OR <edit>-plnnr6 IS INITIAL OR <edit>-plnal6 IS INITIAL.
-        CLEAR <edit>-plnty6.
-        CLEAR <edit>-plnnr6.
-        CLEAR <edit>-plnal6.
-        CLEAR <edit>-aufkt6.
-      ELSEIF <edit>-aufkt6 IS INITIAL.
-        <edit>-aufkt6 = 1.
-      ENDIF.
+      clear_plkz_fields( CHANGING cs_edit = <edit> ).
 
       MOVE-CORRESPONDING <edit> TO <detail_dynamic>.
     ENDLOOP.
@@ -1610,54 +1566,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
 
     " clear
     LOOP AT edits ASSIGNING <edit>.
-      IF <edit>-plnnr1 IS INITIAL OR <edit>-plnal1 IS INITIAL.
-        CLEAR <edit>-plnty1.
-        CLEAR <edit>-plnnr1.
-        CLEAR <edit>-plnal1.
-        CLEAR <edit>-aufkt1.
-      ELSEIF <edit>-aufkt1 IS INITIAL.
-        <edit>-aufkt1 = 1.
-      ENDIF.
-      IF <edit>-plnnr2 IS INITIAL OR <edit>-plnal2 IS INITIAL.
-        CLEAR <edit>-plnty2.
-        CLEAR <edit>-plnnr2.
-        CLEAR <edit>-plnal2.
-        CLEAR <edit>-aufkt2.
-      ELSEIF <edit>-aufkt2 IS INITIAL.
-        <edit>-aufkt2 = 1.
-      ENDIF.
-      IF <edit>-plnnr3 IS INITIAL OR <edit>-plnal3 IS INITIAL.
-        CLEAR <edit>-plnty3.
-        CLEAR <edit>-plnnr3.
-        CLEAR <edit>-plnal3.
-        CLEAR <edit>-aufkt3.
-      ELSEIF <edit>-aufkt3 IS INITIAL.
-        <edit>-aufkt3 = 1.
-      ENDIF.
-      IF <edit>-plnnr4 IS INITIAL OR <edit>-plnal4 IS INITIAL.
-        CLEAR <edit>-plnty4.
-        CLEAR <edit>-plnnr4.
-        CLEAR <edit>-plnal4.
-        CLEAR <edit>-aufkt4.
-      ELSEIF <edit>-aufkt4 IS INITIAL.
-        <edit>-aufkt4 = 1.
-      ENDIF.
-      IF <edit>-plnnr5 IS INITIAL OR <edit>-plnal5 IS INITIAL.
-        CLEAR <edit>-plnty5.
-        CLEAR <edit>-plnnr5.
-        CLEAR <edit>-plnal5.
-        CLEAR <edit>-aufkt5.
-      ELSEIF <edit>-aufkt5 IS INITIAL.
-        <edit>-aufkt5 = 1.
-      ENDIF.
-      IF <edit>-plnnr6 IS INITIAL OR <edit>-plnal6 IS INITIAL.
-        CLEAR <edit>-plnty6.
-        CLEAR <edit>-plnnr6.
-        CLEAR <edit>-plnal6.
-        CLEAR <edit>-aufkt6.
-      ELSEIF <edit>-aufkt6 IS INITIAL.
-        <edit>-aufkt6 = 1.
-      ENDIF.
+      clear_plkz_fields( CHANGING cs_edit = <edit> ).
     ENDLOOP.
 
     LOOP AT detail_locals TRANSPORTING NO FIELDS WHERE box = abap_on.
@@ -1706,7 +1615,8 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
         lo_ce->get_value( EXPORTING pi_fieldname = 'ORDEN_CREAR_TIPO'
                           CHANGING  pc_value     = constant_global-orden_crear_tipo ).
 
-      CATCH cx_root.
+      CATCH cx_root INTO DATA(lx_root).
+        MESSAGE lx_root->get_text( ) TYPE 'S' DISPLAY LIKE 'E'.
     ENDTRY.
   ENDMETHOD.
 
@@ -2185,8 +2095,8 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
       build_list_caracteri_averia( IMPORTING caracteri_averias = <hreqse>-caracteri_averia_secundario
                                    CHANGING  line              = <hreqse> ).
 
-      <hreqse>-lines_principal = lines( <hreqse>-caracteri_averia_principal ).
-      <hreqse>-lines_principal = lines( <hreqse>-caracteri_averia_secundario ).
+      <hreqse>-lines_principal  = lines( <hreqse>-caracteri_averia_principal ).
+      <hreqse>-lines_secundario = lines( <hreqse>-caracteri_averia_secundario ).
     ENDLOOP.
 
     " sort
@@ -2859,10 +2769,14 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    DATA l_peso TYPE ze_peso_calculado.
+
     LOOP AT ausps ASSIGNING FIELD-SYMBOL(<ausp>) FROM sy-tabix.
       IF <ausp>-objek <> objek.
         EXIT.
       ENDIF.
+
+      CLEAR l_peso.
 
       " peso y peso calculado
       READ TABLE matx_ds ASSIGNING FIELD-SYMBOL(<matx_d>) WITH KEY eqart   = eqart
@@ -2875,7 +2789,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                                                          atinn_value = space BINARY SEARCH.
         ENDIF.
         IF sy-subrc = 0.
-          DATA(l_peso) = <caract>-peso.
+          l_peso = <caract>-peso.
           peso_calculado += <caract>-peso * <matx_d>-peso / 100.
         ENDIF.
       ENDIF.
@@ -2926,10 +2840,6 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
                                         cabns             = data-cabn
                               IMPORTING fcats             = fcats
                               CHANGING  details           = details ).
-
-    " TODO: variable is assigned but never used (ABAP cleaner)
-    DATA(fcats_local) = fcats.
-    SORT fcats_local BY fieldname.
 
     IF comparison_flag IS INITIAL.
       cl_alv_table_create=>create_dynamic_table( EXPORTING  it_fieldcatalog           = fcats
@@ -3345,7 +3255,7 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
 
     DATA orden TYPE ty_orden.
 
-    READ TABLE ordens ASSIGNING FIELD-SYMBOL(<orden>) WITH KEY aufnr = detail-qmnum BINARY SEARCH.
+    READ TABLE ordens ASSIGNING FIELD-SYMBOL(<orden>) WITH KEY aufnr = detail-aufnr BINARY SEARCH.
     IF sy-subrc = 0.
       orden = CORRESPONDING #( <orden> ).
     ENDIF.
@@ -3353,5 +3263,37 @@ CLASS zcleam_13_reporte_matriz IMPLEMENTATION.
     orden-icon    = detail-icon.
     orden-message = detail-message.
     MOVE-CORRESPONDING orden TO detail_dynamic.
+  ENDMETHOD.
+
+  METHOD clear_plkz_fields.
+    DO 6 TIMES.
+      DATA(idx) = sy-index.
+
+      ASSIGN COMPONENT |PLNNR{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<plnnr>).
+      ASSIGN COMPONENT |PLNAL{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<plnal>).
+      ASSIGN COMPONENT |PLNTY{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<plnty>).
+      ASSIGN COMPONENT |AUFKT{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<aufkt>).
+
+      IF sy-subrc <> 0.
+        EXIT.
+      ENDIF.
+
+      DATA(l_equnr_empty) = abap_false.
+      IF idx > 1.
+        ASSIGN COMPONENT |EQUNR{ idx }| OF STRUCTURE cs_edit TO FIELD-SYMBOL(<equnr>).
+        IF sy-subrc = 0 AND <equnr> IS INITIAL.
+          l_equnr_empty = abap_true.
+        ENDIF.
+      ENDIF.
+
+      IF l_equnr_empty = abap_true OR <plnnr> IS INITIAL OR <plnal> IS INITIAL.
+        CLEAR <plnty>.
+        CLEAR <plnnr>.
+        CLEAR <plnal>.
+        CLEAR <aufkt>.
+      ELSEIF <aufkt> IS INITIAL.
+        <aufkt> = 1.
+      ENDIF.
+    ENDDO.
   ENDMETHOD.
 ENDCLASS.
